@@ -57,7 +57,7 @@ GPIO.output(READY_PIN, GPIO.LOW)
 
 # --------- APP SETUP ----------
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode="threading")
 
 # ensure log dir exists
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -85,8 +85,9 @@ def safe_open_serial(port, baud):
         print(f"Port {port} is busy, retrying: {e}")
         return None
 
-def serial_loop(find_arduino_port, BAUD_RATE, session_filename=None):
-    log_buffer = []
+def serial_loop(find_arduino_port, BAUD_RATE):
+    global ser, log_buffer, session_filename
+
     ser = None
     retry_delay = 2
     running = True
@@ -108,21 +109,21 @@ def serial_loop(find_arduino_port, BAUD_RATE, session_filename=None):
         try:
             raw = ser.readline().decode(errors="ignore").strip()
             if not raw:
-                raise serial.SerialException("No data received")
+                continue
 
             ts = datetime.now().isoformat()
             entry = {"time": ts, "raw": raw}
 
             parsed = {}
-            parts = [p.strip() for p in raw.replace(",", " ").split() if "=" in p or ":" in p]
-            for p in parts:
-                if "=" in p:
-                    k, v = p.split("=", 1)
-                elif ":" in p:
-                    k, v = p.split(":", 1)
+            for part in raw.split(","):
+                part = part.strip()
+                if "=" in part:
+                    key, value = part.split("=", 1)
+                elif ":" in part:
+                    key, value = part.split(":", 1)
                 else:
                     continue
-                parsed[k.strip().upper()] = v.strip()
+                parsed[key.strip().upper()] = value.strip()
             if parsed:
                 entry["parsed"] = parsed
 
@@ -136,7 +137,7 @@ def serial_loop(find_arduino_port, BAUD_RATE, session_filename=None):
                         f.write(json.dumps(entry) + "\n")
                 except Exception as e:
                     print("Failed writing session log:", e)
-
+            print(f"Serial RX: {raw}", flush=True)
             socketio.emit("serial_update", entry)
 
         except serial.SerialException as e:
@@ -175,6 +176,15 @@ start_serial_thread()
 def send_to_arduino(cmd: str):
     """Write command line to Arduino (terminates with LF)."""
     global ser
+
+    print(
+        f"TX DEBUG: cmd={cmd!r}, "
+        f"ser={ser!r}, "
+        f"is_open={ser.is_open if ser else None}, "
+        f"thread={threading.current_thread().name}",
+        flush=True
+    )
+
     if ser and ser.is_open:
         try:
             ser.write((cmd.strip() + "\n").encode())
@@ -277,4 +287,9 @@ if __name__ == "__main__":
     print("Starting Flask SocketIO server...")
     print("Serial port set to:", SERIAL_PORT)
     # try open serial immediately
-    socketio.run(app, host="0.0.0.0", port=5000)
+    socketio.run(
+            app,
+            host="0.0.0.0",
+            port=5000,
+            allow_unsafe_werkzeug=True
+        )

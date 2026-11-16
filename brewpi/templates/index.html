@@ -1,0 +1,167 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Brew Controller Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { padding: 20px; }
+    #logbox { height: 260px; overflow:auto; background:#f8f9fa; padding:8px; border:1px solid #ddd; white-space:pre-wrap; }
+    .badge { font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Brew Controller</h1>
+
+    <div class="row mt-3">
+      <div class="col-md-8">
+        <canvas id="chart" height="160"></canvas>
+      </div>
+      <div class="col-md-4">
+        <div class="mb-2">
+          <button class="btn btn-primary" onclick="sendCmd('RESET')">RESET</button>
+          <button class="btn btn-secondary" onclick="sendCmd('SKIP')">SKIP</button>
+          <button class="btn btn-warning" onclick="sendCmd('PAUSE')">PAUSE</button>
+          <button class="btn btn-success" onclick="sendCmd('RESUME')">RESUME</button>
+          <button class="btn btn-info" onclick="sendCmd('UP')">SP +</button>
+          <button class="btn btn-info" onclick="sendCmd('DOWN')">SP -</button>
+          <button class="btn btn-danger" onclick="sendCmd('SHUTDOWN')">SHUTDOWN</button>
+        </div>
+
+        <div class="mb-2">
+          <button class="btn btn-outline-primary" onclick="startSession()">Start Session</button>
+          <button class="btn btn-outline-secondary" onclick="downloadSession()">Download Session Log</button>
+        </div>
+
+        <h5>Status</h5>
+        <div id="status">
+          <span id="heatBadge" class="badge bg-danger">Heat OFF</span>
+          <span id="okBadge" class="badge bg-secondary">Mash Not OK</span>
+        </div>
+        <hr>
+        <h5>Live Log</h5>
+        <div id="logbox"></div>
+      </div>
+    </div>
+
+    <hr>
+    <h3>Create Recipe (5 steps)</h3>
+    <form id="recipeForm">
+      <div id="recipeInputs" class="row"></div>
+      <button class="btn btn-primary mt-2" type="submit">Send Recipe</button>
+    </form>
+  </div>
+
+<script>
+  const socket = io();
+  const logbox = document.getElementById("logbox");
+  const heatBadge = document.getElementById("heatBadge");
+  const okBadge = document.getElementById("okBadge");
+
+  // Chart.js setup
+  const ctx = document.getElementById('chart').getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Vessel (F)', data: [], borderColor: 'blue', fill:false },
+        { label: 'HEX (F)', data: [], borderColor: 'red', fill:false },
+        { label: 'SP (F)', data: [], borderColor: 'green', fill:false }
+      ]
+    },
+    options: { animation:false, scales: { x: { display:true } } }
+  });
+
+  // Build recipe inputs
+  const recipeInputs = document.getElementById("recipeInputs");
+  for (let i=1;i<=5;i++){
+    const row = document.createElement("div");
+    row.className = "col-md-4 mb-2";
+    row.innerHTML = `
+      <label>Step ${i}</label>
+      <input class="form-control" placeholder="Temp (F)" id="step_temp_${i}" />
+      <input class="form-control mt-1" placeholder="Time (min)" id="step_time_${i}" />
+    `;
+    recipeInputs.appendChild(row);
+  }
+
+  // socket handler
+  socket.on("serial_update", (entry) => {
+    // append raw log
+    logbox.textContent += `[${entry.time}] ` + entry.raw + "\n";
+    logbox.scrollTop = logbox.scrollHeight;
+
+    // update chart if parser finds fields
+    if (entry.parsed) {
+      const parsed = entry.parsed;
+      const now = new Date().toLocaleTimeString();
+      chart.data.labels.push(now);
+      // simple key names: NTC / VESSEL / T_VESSEL / SP / PWM / HEX
+      const vessel = parseFloat(parsed["NTC"] || parsed["T_VESSEL"] || parsed["VESSEL"] || parsed["VESSELF"]);
+      const hex = parseFloat(parsed["HEX"] || parsed["HEXF"]);
+      const sp = parseFloat(parsed["SP"] || parsed["PIDSETPOINT"] || parsed["SETPOINT"]);
+      chart.data.datasets[0].data.push(isNaN(vessel)?null:vessel);
+      chart.data.datasets[1].data.push(isNaN(hex)?null:hex);
+      chart.data.datasets[2].data.push(isNaN(sp)?null:sp);
+      // trim to 120 points
+      if (chart.data.labels.length>120) {
+        chart.data.labels.shift();
+        chart.data.datasets.forEach(ds => ds.data.shift());
+      }
+      chart.update();
+
+      // update status badges
+      const pwm = parseFloat(parsed["PWM"]);
+      if (!isNaN(pwm) && pwm > 5) {
+        heatBadge.textContent = "Heat ON"; heatBadge.className = "badge bg-danger";
+      } else { heatBadge.textContent = "Heat OFF"; heatBadge.className = "badge bg-secondary"; }
+      if (!isNaN(sp) && !isNaN(vessel) && Math.abs(sp - vessel) <= 0.5) {
+        okBadge.textContent = "Mash OK"; okBadge.className = "badge bg-success";
+      } else { okBadge.textContent = "Mash Not OK"; okBadge.className = "badge bg-secondary"; }
+    }
+  });
+
+  // request recent on connect
+  socket.emit("request_recent");
+
+  function sendCmd(cmd){
+    fetch("/send", {
+      method:"POST",
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({cmd:cmd})
+    });
+  }
+
+  document.getElementById("recipeForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    const steps = [];
+    for (let i=1;i<=5;i++){
+      const t = document.getElementById("step_temp_"+i).value;
+      const time = document.getElementById("step_time_"+i).value;
+      if (t && time) steps.push({temp: parseFloat(t), time: parseFloat(time)});
+    }
+    fetch("/load_recipe", {
+      method:"POST",
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({recipe: steps})
+    }).then(r=>r.json()).then(d=>{
+      alert("Recipe sent: " + JSON.stringify(d));
+    });
+  });
+
+  function startSession(){
+    fetch("/start_session", {method:"POST"}).then(r=>r.json()).then(d=>{
+      alert("Session file: "+d.session_file);
+    });
+  }
+
+  function downloadSession(){
+    alert("Session download is saved to Pi logs folder; use SCP or open via file manager.");
+  }
+</script>
+</body>
+</html>

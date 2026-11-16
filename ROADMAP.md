@@ -14,8 +14,12 @@ This is a proposed work plan, not a claim that the listed features are already i
 
 ## P1: Restore reliable telemetry
 
-- [ ] Ensure a single serial-port owner in the Flask process.
-- [ ] Verify the dashboard's `serial_update` and `recent_log` handlers against actual firmware output.
+**November 15, 2026 progress:** Live 1 Hz desktop/Android telemetry, dark responsive dashboard, telemetry freshness indicator, and working setpoint adjustments observed. Eventlet was replaced with explicit threading mode for a controlled stability comparison; extended soak testing and serial-reconnect testing remain open.
+
+- [x] Confirm one Flask process owns the serial connection in the observed service configuration (recheck after deployments).
+- [ ] Add a shared serial-connection lock and tests for reconnect/write races, if required by diagnosis.
+- [x] Observe `serial_update` telemetry rendering in desktop and Android dashboards.
+- [ ] Validate `recent_log` behavior and reconnect recovery in automated tests.
 - [ ] Make READY LED depend on recent valid telemetry, not only opening the serial port.
 - [ ] Add serial reconnect integration tests and a simulated serial input mode.
 - [ ] Confirm session downloads work with actual saved log paths.
@@ -31,11 +35,14 @@ This is a proposed work plan, not a claim that the listed features are already i
 
 ## P3: Brewing workflow
 
-- [ ] Confirm serial command semantics match web buttons, including RESUME and SHUTDOWN.
+- [x] Observe SP+/SP− command effects on live Arduino setpoint telemetry.
+- [ ] Confirm remaining serial command semantics, including RESUME and SHUTDOWN.
+- [ ] Return non-2xx HTTP status for failed `/send` writes and show actionable command errors in UI.
 - [ ] Test recipe upload, step transitions, timers, pause/resume and reset behavior.
 - [ ] Validate pump/operator prompts for strike, grain rest, mash and sparge stages.
 - [ ] Add unit and hardware-in-the-loop tests for recipe timing and failure cases.
-- [ ] Add clear disconnected/stale sensor indicators to the UI.
+- [x] Add separate socket-connectivity and telemetry-freshness indicators to the UI.
+- [ ] Distinguish physically invalid/disconnected sensor values from transport freshness.
 
 ## Release criterion
 

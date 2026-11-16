@@ -18,10 +18,23 @@ The existing application uses Flask, Flask-SocketIO, pyserial and RPi.GPIO. On B
 
 ```bash
 sudo apt update
-sudo apt install python3-flask python3-flask-socketio python3-serial python3-rpi.gpio python3-eventlet lsof
+sudo apt install python3-flask python3-flask-socketio python3-serial python3-rpi.gpio python3-venv lsof
 ```
 
 Check the actual imports in `brewpi/app.py` for any additional requirements. Do not mix system Python packages and `pip --break-system-packages` casually.
+
+### November 2026 runtime: Python threading and WebSocket support
+
+The tested Pi deployment explicitly selects `SocketIO(app, async_mode="threading")` instead of automatically choosing installed Eventlet. The APT package `python3-simple-websocket` was unavailable in the configured repositories, so the deployment uses an isolated virtual environment while retaining system-provided Python modules:
+
+```bash
+cd ~/brewpi
+/usr/bin/python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install simple-websocket==1.1.0
+.venv/bin/python -m py_compile app.py
+```
+
+The deployed script on the Pi is `/home/rubik/brewpi/app.py`; a fresh repository checkout may instead have a nested `brewpi/app.py`. Adjust paths accordingly. In threading mode, the currently tested startup uses `socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)` **only for trusted-LAN bench testing**. Do not expose Werkzeug or the command endpoints to the internet.
 
 ## Project files
 
@@ -64,7 +77,7 @@ From the repository root:
 python3 brewpi/app.py
 ```
 
-Open `http://<pi-ip>:5000/` on a trusted LAN. The app should use `socketio = SocketIO(app)` or explicitly call `socketio.init_app(app)` before `socketio.run(...)`. Do not instantiate a second uninitialized SocketIO object.
+Open `http://<pi-ip>:5000/` on a trusted LAN. The November 2026 Pi deployment uses `socketio = SocketIO(app, async_mode="threading")`; other installations may use `SocketIO(app)` or explicitly call `socketio.init_app(app)` before `socketio.run(...)`. Do not instantiate a second uninitialized SocketIO object.
 
 ## Optional systemd service
 
@@ -79,9 +92,8 @@ After=network.target
 Type=simple
 User=rubik
 WorkingDirectory=/home/rubik/brewpi
-ExecStart=/usr/bin/python3 /home/rubik/brewpi/brewpi/app.py
-Restart=on-failure
-RestartSec=5
+ExecStart=/home/rubik/brewpi/.venv/bin/python /home/rubik/brewpi/app.py
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
@@ -96,3 +108,7 @@ systemctl status brewpi --no-pager
 ```
 
 A running service does **not** prove serial telemetry or safe heater control. Check the logs and browser separately. To open a serial monitor, stop the service first and restart it afterward.
+
+### Current Pi service (observed November 15, 2026)
+
+The active unit uses `User=rubik`, `WorkingDirectory=/home/rubik/brewpi`, `ExecStart=/home/rubik/brewpi/.venv/bin/python /home/rubik/brewpi/app.py`, and `Restart=always`. This differs from a nested repository checkout. A brief `active (running)` result immediately after startup is not proof of health; also inspect `journalctl` and confirm live telemetry.

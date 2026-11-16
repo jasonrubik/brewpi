@@ -36,3 +36,7 @@ The intended HERMS heater is 1200 W with an SSR; the pump is a separate process 
 ## READY indicator semantics
 
 A successful `serial.Serial(...)` open only proves a device file opened. A useful READY signal should require actual fresh, valid Arduino telemetry and a healthy web application. On stale data, invalid sensor values, or disconnection, READY should turn off. This behavior needs verification.
+
+## November 2026 bench observation
+
+With Arduino sensor inputs disconnected, the dashboard displayed approximately 70°F vessel temperature and 32–40°F HEX temperature, while firmware reported `MODE=FAILSAFE`, `EVENT=FAILSAFE_TRIP`, and `PWM=0`. These readings are **not calibrated measurements**. The heater SSR was physically disconnected; the displayed `HEAT OFF` state is telemetry, not independent proof of electrical isolation. Software setpoint buttons were exercised only under this disconnected-heater condition.

@@ -22,7 +22,7 @@ Arduino Uno (brewpi-arduino/brewpi-arduino.ino)
     |-- D11-D13: alarm/status indicators
 ```
 
-The current firmware uses the Arduino PID library and implements a default five-stage brewing sequence. The web UI provides a live chart, log, command buttons, session controls and recipe entry. **Some functions and safety behavior still need validation.**
+The current firmware uses the Arduino PID library and implements a default five-stage brewing sequence. The responsive dark web UI provides a live chart, telemetry heartbeat, failsafe banner, log, command buttons, session controls and recipe entry. Desktop and compact Android layouts have been observed receiving approximately one update per second. **Some functions and safety behavior still need validation.**
 
 ## Repository layout
 
@@ -94,6 +94,15 @@ sudo ss -ltnp | grep ':5000'
 | Done | — | Heater disabled |
 
 This table describes **intended firmware behavior**, not verified physical performance. Pump control and operator interventions require review.
+
+## November 15, 2026 bench-test progress
+
+- Replaced automatically selected Eventlet with explicit `SocketIO(app, async_mode="threading")` after observing recurring browser WebSocket `ping timeout` and `transport close` messages. A subsequent desktop and Android observation showed fresh, approximately 1 Hz telemetry and no disconnect in the captured interval; prolonged stability is **not yet established**.
+- On the Pi, a Python virtual environment at `~/brewpi/.venv` was created with `--system-site-packages`; `simple-websocket==1.1.0` was installed. The running systemd unit uses `~/brewpi/.venv/bin/python`. This is a Python package environment, **not a virtual machine**.
+- In threading mode, the current application starts Werkzeug with `allow_unsafe_werkzeug=True`. This is a temporary **trusted-LAN bench-test configuration**, not an internet-facing production deployment.
+- Fixed serial-command delivery during troubleshooting. Browser requests use `POST /send` with `{"cmd":"UP"}` or `{"cmd":"DOWN"}`, matching the Arduino sketch. The Android screenshot shows the target setpoint responding to repeated DOWN commands, reaching 98°F, while telemetry remained live. The exact final code change should be checked against the Pi before committing application code.
+- A prior failure returned HTTP 200 with `{"status":"error","sent":"UP"}` and logged `Serial port not open.`; `/send` should return a non-2xx status when serial transmission fails.
+- **Bench status:** `MODE=FAILSAFE`, `EVENT=FAILSAFE_TRIP`, `PWM=0` in reported telemetry; NTC/LM35 sensors disconnected and values not physically valid. Heater remains physically disabled.
 
 ## Safety and current limitations
 

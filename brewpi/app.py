@@ -57,7 +57,7 @@ GPIO.output(READY_PIN, GPIO.LOW)
 
 # --------- APP SETUP ----------
 app = Flask(__name__)
-socketio = SocketIO()
+socketio = SocketIO(app)
 
 # ensure log dir exists
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -162,7 +162,11 @@ def serial_loop(find_arduino_port, BAUD_RATE, session_filename=None):
 # start serial thread
 def start_serial_thread():
     global serial_thread
-    serial_thread = threading.Thread(target=serial_loop, daemon=True)
+    serial_thread = threading.Thread(
+        target=serial_loop,
+        args=(find_arduino_port, BAUD_RATE),
+        daemon=True
+    )
     serial_thread.start()
 
 start_serial_thread()
@@ -273,5 +277,4 @@ if __name__ == "__main__":
     print("Starting Flask SocketIO server...")
     print("Serial port set to:", SERIAL_PORT)
     # try open serial immediately
-    safe_open_serial()
     socketio.run(app, host="0.0.0.0", port=5000)

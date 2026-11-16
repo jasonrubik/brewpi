@@ -1,187 +1,226 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Brew Controller Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BrewPi | Control Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { padding: 20px; }
-    #logbox { height: 260px; overflow:auto; background:#f8f9fa; padding:8px; border:1px solid #ddd; white-space:pre-wrap; }
-    .badge { font-size: 0.9rem; }
+    :root { color-scheme:dark; --bg:#090e17; --surface:#111a28; --surface2:#162235; --border:#26344a; --text:#e9f1fc; --muted:#91a3ba; --blue:#4da9ff; --red:#ff6878; --green:#49d6ac; --amber:#ffbf69; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 80% -15%,#18304d 0,transparent 38%),var(--bg); color:var(--text); font:14px 'DM Sans',sans-serif; }
+    button,input { font:inherit; }
+    .shell { max-width:1500px; margin:auto; padding:26px 28px 45px; }
+    header { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:24px; flex-wrap:wrap; }
+    .brand { display:flex; align-items:center; gap:14px; }
+    .logo { width:45px; height:45px; border-radius:13px; background:linear-gradient(135deg,#327fc5,#54d5c5); display:grid; place-items:center; font:700 22px 'Space Grotesk',sans-serif; color:#07121e; }
+    h1,h2,h3,p { margin:0; }
+    h1 { font:700 25px 'Space Grotesk',sans-serif; letter-spacing:-.7px; }
+    .subtitle { color:var(--muted); font-size:12px; margin-top:3px; }
+    .connection { display:flex; align-items:center; gap:9px; background:var(--surface); border:1px solid var(--border); padding:10px 14px; border-radius:999px; font-weight:600; color:var(--muted); }
+    .dot { width:8px; height:8px; border-radius:50%; background:#75859c; box-shadow:0 0 0 4px #75859c19; }
+    .dot.online { background:var(--green); box-shadow:0 0 0 4px #49d6ac20; }
+    .dot.offline { background:var(--red); box-shadow:0 0 0 4px #ff687820; }
+    .alert { display:none; align-items:center; gap:12px; margin-bottom:18px; border:1px solid #8b4651; background:#3c1b28; color:#ffced3; border-radius:12px; padding:13px 16px; font-weight:700; }
+    .alert.show { display:flex; }
+    .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .card { border:1px solid var(--border); background:linear-gradient(155deg,#142033,#101927); border-radius:15px; min-width:0; box-shadow:0 12px 35px #00000012; }
+    .metric { padding:19px 20px; position:relative; overflow:hidden; }
+    .metric:before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--accent); opacity:.9; }
+    .eyebrow { color:var(--muted); text-transform:uppercase; letter-spacing:1.25px; font-size:10px; font-weight:700; }
+    .metric-value { font:600 clamp(26px,3vw,38px) 'Space Grotesk',sans-serif; letter-spacing:-1.5px; margin-top:10px; font-variant-numeric:tabular-nums; }
+    .unit { font-size:15px; color:var(--muted); letter-spacing:0; margin-left:3px; }
+    .metric-foot { margin-top:9px; color:var(--muted); font-size:12px; }
+    .layout { display:grid; grid-template-columns:minmax(0,1.75fr) minmax(330px,1fr); gap:18px; align-items:start; }
+    .stack { display:grid; gap:18px; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+    .section-title { font:600 16px 'Space Grotesk',sans-serif; }
+    .section-sub { font-size:11px; color:var(--muted); }
+    .chart-card { padding:21px; }
+    .chart-wrap { position:relative; height:370px; }
+    .panel { padding:20px; }
+    .buttons { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+    .btn { border:1px solid var(--border); background:#1b2a3e; color:var(--text); padding:12px 9px; border-radius:9px; cursor:pointer; font-weight:700; transition:background .15s,transform .15s; }
+    .btn:hover { background:#2a3d56; transform:translateY(-1px); }
+    .btn:focus-visible,input:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+    .btn.blue { background:#183b5c; color:#8acbff; border-color:#295a80; }
+    .btn.amber { background:#503b20; color:#ffcb83; border-color:#72552e; }
+    .btn.green { background:#194538; color:#81eac9; border-color:#28624e; }
+    .btn.danger { background:#5a2633; color:#ffb1b9; border-color:#813747; }
+    .btn.wide { grid-column:span 2; }
+    .session-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:11px; }
+    .session-actions .btn { font-size:12px; }
+    .status-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .status-tile { background:#0e1724; border:1px solid var(--border); border-radius:10px; padding:13px; }
+    .status-label { color:var(--muted); font-size:11px; margin-bottom:8px; }
+    .status-value { font:700 13px 'Space Grotesk',sans-serif; }
+    .status-value.good { color:var(--green); } .status-value.bad { color:var(--red); } .status-value.neutral { color:var(--muted); }
+    .logbox { height:270px; overflow:auto; background:#090f1a; border:1px solid var(--border); border-radius:9px; padding:12px; color:#a9c5d9; white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .recipe { margin-top:18px; padding:21px; }
+    .recipe-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; }
+    .step { background:#0d1624; border:1px solid var(--border); border-radius:11px; padding:13px; }
+    .step-title { font-weight:700; margin-bottom:12px; color:#cbd9eb; }
+    label.field { display:block; color:var(--muted); font-size:11px; margin:9px 0 5px; }
+    input { width:100%; border:1px solid #314159; background:#131f30; color:var(--text); border-radius:7px; padding:10px; min-width:0; }
+    input::placeholder { color:#62768e; }
+    .recipe-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px; flex-wrap:wrap; }
+    .hint { color:var(--muted); font-size:12px; }
+    .toast { margin-top:12px; font-size:12px; color:var(--muted); min-height:18px; }
+    @media(max-width:1050px) { .metrics { grid-template-columns:repeat(2,1fr); } .layout { grid-template-columns:1fr; } .recipe-grid { grid-template-columns:repeat(3,1fr); } }
+    @media(max-width:650px) { .shell { padding:16px; } .metrics { gap:9px; } .metric { padding:15px; } .metric-value { font-size:26px; } .chart-wrap { height:270px; } .recipe-grid { grid-template-columns:1fr; } .session-actions { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Brew Controller</h1>
-
-    <div class="row mt-3">
-      <div class="col-md-8">
-        <canvas id="chart" height="160"></canvas>
-      </div>
-      <div class="col-md-4">
-        <div class="mb-2">
-          <button class="btn btn-primary" onclick="sendCmd('RESET')">RESET</button>
-          <button class="btn btn-secondary" onclick="sendCmd('SKIP')">SKIP</button>
-          <button class="btn btn-warning" onclick="sendCmd('PAUSE')">PAUSE</button>
-          <button class="btn btn-success" onclick="sendCmd('RESUME')">RESUME</button>
-          <button class="btn btn-info" onclick="sendCmd('UP')">SP +</button>
-          <button class="btn btn-info" onclick="sendCmd('DOWN')">SP -</button>
-          <button class="btn btn-danger" onclick="sendCmd('SHUTDOWN')">SHUTDOWN</button>
-        </div>
-
-        <div class="mb-2">
-          <button class="btn btn-outline-primary" onclick="startSession()">Start Session</button>
-          <button class="btn btn-outline-secondary" onclick="downloadSession()">Download Session Log</button>
-        </div>
-
-        <h5>Status</h5>
-        <div id="status">
-          <span id="heatBadge" class="badge bg-danger">Heat OFF</span>
-          <span id="okBadge" class="badge bg-secondary">Mash Not OK</span>
-        </div>
-        <hr>
-        <h5>Live Log</h5>
-        <div id="logbox"></div>
-      </div>
+<div class="shell">
+  <header>
+    <div class="brand"><div class="logo">B</div><div><h1>BrewPi <span style="font-weight:400;color:#8da8c6">/ Control Room</span></h1><p class="subtitle">HERMS BREWING CONTROLLER · LIVE TELEMETRY</p></div></div>
+    <div class="connection"><span id="connectionDot" class="dot"></span><span id="connectionText">Connecting to controller...</span></div>
+  </header>
+  <div id="failsafeAlert" class="alert" role="alert"><span style="font-size:18px">!</span><div><div id="failsafeTitle">FAILSAFE ACTIVE</div><div id="failsafeDetail" style="font-size:12px;font-weight:400;margin-top:3px">Controller reports a safety shutdown. Heater must remain disabled.</div></div></div>
+  <section class="metrics" aria-label="Live temperature readings">
+    <div class="card metric" style="--accent:var(--blue)"><div class="eyebrow">Vessel temperature</div><div class="metric-value"><span id="vesselValue">--.-</span><span class="unit">°F</span></div><div class="metric-foot">NTC sensor · <span id="vesselState">Awaiting telemetry</span></div></div>
+    <div class="card metric" style="--accent:var(--red)"><div class="eyebrow">Heat exchanger</div><div class="metric-value"><span id="hexValue">--.-</span><span class="unit">°F</span></div><div class="metric-foot">HEX sensor · <span id="hexState">Awaiting telemetry</span></div></div>
+    <div class="card metric" style="--accent:var(--green)"><div class="eyebrow">Target setpoint</div><div class="metric-value"><span id="spValue">--.-</span><span class="unit">°F</span></div><div class="metric-foot">Current recipe target</div></div>
+    <div class="card metric" style="--accent:var(--amber)"><div class="eyebrow">Controller mode</div><div class="metric-value" id="modeValue" style="font-size:clamp(21px,2.5vw,31px)">UNKNOWN</div><div class="metric-foot" id="stepValue">Waiting for controller</div></div>
+  </section>
+  <main class="layout">
+    <div class="stack">
+      <section class="card chart-card"><div class="section-head"><h2 class="section-title">Temperature history</h2><span class="section-sub">Most recent 120 samples · °F</span></div><div class="chart-wrap"><canvas id="chart"></canvas></div></section>
+      <section class="card panel"><div class="section-head"><h2 class="section-title">Live serial log</h2><span class="section-sub" id="lastUpdate">No data received</span></div><div id="logbox" class="logbox" aria-live="off"></div></section>
     </div>
-
-    <hr>
-    <h3>Create Recipe (5 steps)</h3>
-    <form id="recipeForm">
-      <div id="recipeInputs" class="row"></div>
-      <button class="btn btn-primary mt-2" type="submit">Send Recipe</button>
-    </form>
-  </div>
-
+    <div class="stack">
+      <section class="card panel"><div class="section-head"><h2 class="section-title">Controller commands</h2><span class="section-sub">Arduino serial commands</span></div>
+        <div class="buttons">
+          <button class="btn blue" onclick="sendCmd('RESET')">RESET</button><button class="btn" onclick="sendCmd('SKIP')">SKIP</button><button class="btn amber" onclick="sendCmd('PAUSE')">PAUSE</button>
+          <button class="btn green" onclick="sendCmd('RESUME')">RESUME</button><button class="btn" onclick="sendCmd('UP')">SP +</button><button class="btn" onclick="sendCmd('DOWN')">SP −</button>
+          <button class="btn danger wide" onclick="sendCmd('SHUTDOWN')">SHUTDOWN</button>
+        </div>
+        <div class="session-actions"><button class="btn blue" onclick="startSession()">Start session</button><button class="btn" onclick="downloadSession()">Download session log</button></div><div class="toast" id="actionMessage" role="status"></div>
+      </section>
+      <section class="card panel"><div class="section-head"><h2 class="section-title">System status</h2><span class="section-sub">Reported by firmware</span></div>
+        <div class="status-grid"><div class="status-tile"><div class="status-label">Heater output</div><div class="status-value neutral" id="heatBadge">UNKNOWN</div></div><div class="status-tile"><div class="status-label">Mash target</div><div class="status-value neutral" id="okBadge">UNKNOWN</div></div><div class="status-tile"><div class="status-label">Safety state</div><div class="status-value neutral" id="safetyValue">UNKNOWN</div></div><div class="status-tile"><div class="status-label">Recipe step</div><div class="status-value" id="recipeStepValue">—</div></div></div>
+      </section>
+    </div>
+  </main>
+  <section class="card recipe"><div class="section-head"><div><h2 class="section-title">Recipe builder</h2><p class="subtitle">Define up to five temperature and hold-time steps</p></div></div>
+    <form id="recipeForm"><div id="recipeInputs" class="recipe-grid"></div><div class="recipe-footer"><span class="hint">Only completed steps are sent to the controller.</span><button class="btn blue" type="submit" style="min-width:180px">Send recipe</button></div></form>
+  </section>
+</div>
 <script>
+  const logbox = document.getElementById('logbox');
+  const heatBadge = document.getElementById('heatBadge');
+  const okBadge = document.getElementById('okBadge');
+  const actionMessage = document.getElementById('actionMessage');
   const socket = io();
-  const logbox = document.getElementById("logbox");
-  socket.on("connect", () => {
-  console.log("Socket.IO connected:", socket.id);
-  logbox.textContent += "Socket.IO connected\n";
-});
+  let lastTelemetryAt = 0;
+  let lastSafetyMode = '';
 
-socket.on("disconnect", (reason) => {
-  console.warn("Socket.IO disconnected:", reason);
-  logbox.textContent += "Socket.IO disconnected: " + reason + "\n";
-});
-
-socket.on("connect_error", (error) => {
-  console.error("Socket.IO connection error:", error);
-  logbox.textContent += "Socket.IO connection error: " + error.message + "\n";
-});
-
-socket.on("serial_update", (entry) => {
-  console.log("Received serial_update:", entry);
-});
-  const heatBadge = document.getElementById("heatBadge");
-  const okBadge = document.getElementById("okBadge");
-
-  // Chart.js setup
-  const ctx = document.getElementById('chart').getContext('2d');
-  const chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [
-        { label: 'Vessel (F)', data: [], borderColor: 'blue', fill:false },
-        { label: 'HEX (F)', data: [], borderColor: 'red', fill:false },
-        { label: 'SP (F)', data: [], borderColor: 'green', fill:false }
-      ]
-    },
-    options: { animation:false, scales: { x: { display:true } } }
+  Chart.defaults.color = '#91a3ba';
+  Chart.defaults.font.family = 'DM Sans, sans-serif';
+  const chart = new Chart(document.getElementById('chart').getContext('2d'), {
+    type:'line',
+    data:{labels:[],datasets:[
+      {label:'Vessel (°F)',data:[],borderColor:'#4da9ff',backgroundColor:'#4da9ff',pointRadius:0,pointHoverRadius:4,borderWidth:2,tension:.25,spanGaps:false},
+      {label:'HEX (°F)',data:[],borderColor:'#ff6878',backgroundColor:'#ff6878',pointRadius:0,pointHoverRadius:4,borderWidth:2,tension:.25,spanGaps:false},
+      {label:'Setpoint (°F)',data:[],borderColor:'#49d6ac',backgroundColor:'#49d6ac',pointRadius:0,pointHoverRadius:4,borderWidth:2,tension:.15,spanGaps:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',align:'start',labels:{usePointStyle:true,pointStyle:'line',padding:22}}},scales:{x:{grid:{color:'#26344a66'},ticks:{maxTicksLimit:7,maxRotation:0}},y:{grid:{color:'#26344a99'},title:{display:true,text:'Temperature (°F)'}}}}
   });
 
-  // Build recipe inputs
-  const recipeInputs = document.getElementById("recipeInputs");
-  for (let i=1;i<=5;i++){
-    const row = document.createElement("div");
-    row.className = "col-md-4 mb-2";
-    row.innerHTML = `
-      <label>Step ${i}</label>
-      <input class="form-control" placeholder="Temp (F)" id="step_temp_${i}" />
-      <input class="form-control mt-1" placeholder="Time (min)" id="step_time_${i}" />
-    `;
-    recipeInputs.appendChild(row);
+  const recipeInputs = document.getElementById('recipeInputs');
+  for(let i=1;i<=5;i++){
+    const item=document.createElement('div'); item.className='step';
+    item.innerHTML=`<div class="step-title">STEP ${String(i).padStart(2,'0')}</div><label class="field" for="step_temp_${i}">Temperature (°F)</label><input type="number" step="any" placeholder="e.g. 148" id="step_temp_${i}"><label class="field" for="step_time_${i}">Duration (minutes)</label><input type="number" step="any" min="0" placeholder="e.g. 60" id="step_time_${i}">`;
+    recipeInputs.appendChild(item);
   }
 
-  // socket handler
-  socket.on("serial_update", (entry) => {
-    // append raw log
-    logbox.textContent += `[${entry.time}] ` + entry.raw + "\n";
-    logbox.scrollTop = logbox.scrollHeight;
+  function setConnection(connected){
+    const dot=document.getElementById('connectionDot');
+    dot.className='dot '+(connected?'online':'offline');
+    document.getElementById('connectionText').textContent=connected?'Socket connected':'Socket disconnected';
+  }
+  function showMessage(text){ actionMessage.textContent=text; }
+  function readNumber(parsed,keys){
+    for(const key of keys){if(parsed[key]!==undefined && parsed[key]!==null && parsed[key]!==''){const n=Number(parsed[key]);if(Number.isFinite(n))return n;}}
+    return null;
+  }
+  function updateNumber(id,value){document.getElementById(id).textContent=value===null?'--.-':value.toFixed(1);}
+  function updateStatus(el,text,state){el.textContent=text;el.className='status-value '+state;}
+  function appendLog(entry){
+    const nearBottom=logbox.scrollHeight-logbox.scrollTop-logbox.clientHeight<45;
+    logbox.textContent+=`[${entry.time||new Date().toISOString()}] ${entry.raw||''}\n`;
+    const lines=logbox.textContent.split('\n');
+    if(lines.length>250)logbox.textContent=lines.slice(-200).join('\n');
+    if(nearBottom)logbox.scrollTop=logbox.scrollHeight;
+  }
+  function handleSerial(entry){
+    if(!entry || typeof entry!=='object')return;
+    appendLog(entry);
+    lastTelemetryAt=Date.now();
+    document.getElementById('lastUpdate').textContent='Updated '+new Date().toLocaleTimeString();
+    const p=entry.parsed;
+    if(!p || typeof p!=='object' || !('TIME' in p || 'MODE' in p || 'NTC' in p || 'HEX' in p))return;
+    const vessel=readNumber(p,['NTC','T_VESSEL','VESSEL','VESSELF']);
+    const hex=readNumber(p,['HEX','HEXF']);
+    const sp=readNumber(p,['SP','PIDSETPOINT','SETPOINT']);
+    const pwm=readNumber(p,['PWM']);
+    const mode=String(p.MODE||'UNKNOWN').toUpperCase();
+    const event=String(p.EVENT||'').toUpperCase();
+    const failsafe=mode==='FAILSAFE'||event.includes('FAILSAFE');
+    lastSafetyMode=mode;
+    document.getElementById('modeValue').textContent=mode;
+    document.getElementById('stepValue').textContent=p.STEPNAME||'No step name reported';
+    document.getElementById('recipeStepValue').textContent=p.STEP!==undefined?String(Number(p.STEP)+1):'—';
+    document.getElementById('failsafeAlert').classList.toggle('show',failsafe);
+    document.getElementById('failsafeDetail').textContent=event.includes('FAILSAFE')?'Firmware event: '+event+'. Verify sensors and heater output before operation.':'Controller is in FAILSAFE mode. Verify sensors and heater output before operation.';
+    updateStatus(document.getElementById('safetyValue'),failsafe?'FAILSAFE':mode==='UNKNOWN'?'UNKNOWN':'NO TRIP REPORTED',failsafe?'bad':mode==='UNKNOWN'?'neutral':'good');
+    updateStatus(heatBadge,pwm===null?'UNKNOWN':pwm>5?'HEAT ON':'HEAT OFF',pwm===null?'neutral':pwm>5?'bad':'good');
+    updateStatus(okBadge,vessel===null||sp===null?'UNKNOWN':Math.abs(sp-vessel)<=.5?'MASH OK':'MASH NOT OK',vessel===null||sp===null?'neutral':Math.abs(sp-vessel)<=.5?'good':'neutral');
+    updateNumber('vesselValue',vessel);updateNumber('hexValue',hex);updateNumber('spValue',sp);
+    document.getElementById('vesselState').textContent=failsafe?'Unverified during failsafe':'Firmware reading';
+    document.getElementById('hexState').textContent=failsafe?'Check sensor / wiring':'Firmware reading';
+    chart.data.labels.push(new Date().toLocaleTimeString());
+    chart.data.datasets[0].data.push(vessel);
+    chart.data.datasets[1].data.push(hex);
+    chart.data.datasets[2].data.push(sp);
+    if(chart.data.labels.length>120){chart.data.labels.shift();chart.data.datasets.forEach(ds=>ds.data.shift());}
+    chart.update('none');
+  }
+  socket.on('connect',()=>{setConnection(true);socket.emit('request_recent');});
+  socket.on('disconnect',()=>setConnection(false));
+  socket.on('connect_error',err=>{setConnection(false);showMessage('Connection error: '+err.message);});
+  socket.on('serial_update',handleSerial);
 
-    // update chart if parser finds fields
-    if (entry.parsed) {
-      const parsed = entry.parsed;
-      const now = new Date().toLocaleTimeString();
-      chart.data.labels.push(now);
-      // simple key names: NTC / VESSEL / T_VESSEL / SP / PWM / HEX
-      const vessel = parseFloat(parsed["NTC"] || parsed["T_VESSEL"] || parsed["VESSEL"] || parsed["VESSELF"]);
-      const hex = parseFloat(parsed["HEX"] || parsed["HEXF"]);
-      const sp = parseFloat(parsed["SP"] || parsed["PIDSETPOINT"] || parsed["SETPOINT"]);
-      chart.data.datasets[0].data.push(isNaN(vessel)?null:vessel);
-      chart.data.datasets[1].data.push(isNaN(hex)?null:hex);
-      chart.data.datasets[2].data.push(isNaN(sp)?null:sp);
-      // trim to 120 points
-      if (chart.data.labels.length>120) {
-        chart.data.labels.shift();
-        chart.data.datasets.forEach(ds => ds.data.shift());
-      }
-      chart.update();
-
-      // update status badges
-      const pwm = parseFloat(parsed["PWM"]);
-      if (!isNaN(pwm) && pwm > 5) {
-        heatBadge.textContent = "Heat ON"; heatBadge.className = "badge bg-danger";
-      } else { heatBadge.textContent = "Heat OFF"; heatBadge.className = "badge bg-secondary"; }
-      if (!isNaN(sp) && !isNaN(vessel) && Math.abs(sp - vessel) <= 0.5) {
-        okBadge.textContent = "Mash OK"; okBadge.className = "badge bg-success";
-      } else { okBadge.textContent = "Mash Not OK"; okBadge.className = "badge bg-secondary"; }
+  async function postJson(path,data){
+    const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const contentType=response.headers.get('content-type')||'';
+    return contentType.includes('application/json')?response.json():null;
+  }
+  async function sendCmd(cmd){
+    try{await postJson('/send',{cmd});showMessage('Command sent: '+cmd+'. Await controller confirmation in telemetry.');}
+    catch(e){showMessage('Command failed: '+e.message);}
+  }
+  document.getElementById('recipeForm').addEventListener('submit',async e=>{
+    e.preventDefault();const steps=[];
+    for(let i=1;i<=5;i++){
+      const t=document.getElementById('step_temp_'+i).value;
+      const time=document.getElementById('step_time_'+i).value;
+      if(t!==''&&time!=='')steps.push({temp:parseFloat(t),time:parseFloat(time)});
     }
+    if(!steps.length){showMessage('Enter at least one complete recipe step.');return;}
+    try{const result=await postJson('/load_recipe',{recipe:steps});showMessage('Recipe request sent: '+JSON.stringify(result));}
+    catch(err){showMessage('Recipe request failed: '+err.message);}
   });
-
-  // request recent on connect
-  socket.on("connect", () => {
-	socket.emit("request_recent");
-  });
-
-  function sendCmd(cmd){
-    fetch("/send", {
-      method:"POST",
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({cmd:cmd})
-    });
+  async function startSession(){
+    try{const response=await fetch('/start_session',{method:'POST'});if(!response.ok)throw new Error('HTTP '+response.status);const result=await response.json();showMessage('Session file: '+result.session_file);}
+    catch(err){showMessage('Unable to start session: '+err.message);}
   }
-
-  document.getElementById("recipeForm").addEventListener("submit", function(e){
-    e.preventDefault();
-    const steps = [];
-    for (let i=1;i<=5;i++){
-      const t = document.getElementById("step_temp_"+i).value;
-      const time = document.getElementById("step_time_"+i).value;
-      if (t && time) steps.push({temp: parseFloat(t), time: parseFloat(time)});
-    }
-    fetch("/load_recipe", {
-      method:"POST",
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({recipe: steps})
-    }).then(r=>r.json()).then(d=>{
-      alert("Recipe sent: " + JSON.stringify(d));
-    });
-  });
-
-  function startSession(){
-    fetch("/start_session", {method:"POST"}).then(r=>r.json()).then(d=>{
-      alert("Session file: "+d.session_file);
-    });
-  }
-
-  function downloadSession(){
-    alert("Session download is saved to Pi logs folder; use SCP or open via file manager.");
-  }
+  function downloadSession(){showMessage('Session log is saved on the Raspberry Pi. Use SCP or the Pi file manager to retrieve it.');}
 </script>
 </body>
 </html>

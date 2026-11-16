@@ -25,6 +25,13 @@
     .dot { width:8px; height:8px; border-radius:50%; background:#75859c; box-shadow:0 0 0 4px #75859c19; }
     .dot.online { background:var(--green); box-shadow:0 0 0 4px #49d6ac20; }
     .dot.offline { background:var(--red); box-shadow:0 0 0 4px #ff687820; }
+    .connection-group { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .heartbeat.live { color:var(--green); border-color:#28624e; }
+    .heartbeat.stale { color:var(--amber); border-color:#72552e; }
+    .heartbeat.lost { color:var(--red); border-color:#813747; }
+    .heartbeat.live .dot { background:var(--green); box-shadow:0 0 0 4px #49d6ac20; }
+    .heartbeat.stale .dot { background:var(--amber); box-shadow:0 0 0 4px #ffbf6920; }
+    .heartbeat.lost .dot { background:var(--red); box-shadow:0 0 0 4px #ff687820; }
     .alert { display:none; align-items:center; gap:12px; margin-bottom:18px; border:1px solid #8b4651; background:#3c1b28; color:#ffced3; border-radius:12px; padding:13px 16px; font-weight:700; }
     .alert.show { display:flex; }
     .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
@@ -72,13 +79,83 @@
     .toast { margin-top:12px; font-size:12px; color:var(--muted); min-height:18px; }
     @media(max-width:1050px) { .metrics { grid-template-columns:repeat(2,1fr); } .layout { grid-template-columns:1fr; } .recipe-grid { grid-template-columns:repeat(3,1fr); } }
     @media(max-width:650px) { .shell { padding:16px; } .metrics { gap:9px; } .metric { padding:15px; } .metric-value { font-size:26px; } .chart-wrap { height:270px; } .recipe-grid { grid-template-columns:1fr; } .session-actions { grid-template-columns:1fr; } }
+    /* Phone control-room layout: one viewport, with optional detail drawers. */
+    .mobile-tools { display:none; }
+    @media (max-width:650px) {
+      html,body { height:100%; overflow:hidden; }
+      .shell { height:100dvh; max-height:100dvh; overflow:hidden; padding:8px 10px max(8px,env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:6px; }
+      header { margin:0; gap:4px; flex:0 0 auto; align-items:center; flex-wrap:nowrap; }
+      .brand { gap:7px; min-width:0; }
+      .logo { width:27px; height:27px; border-radius:7px; font-size:15px; flex-shrink:0; }
+      h1 { font-size:16px; white-space:nowrap; }
+      .subtitle { display:none; }
+      .connection-group { gap:4px; margin-left:auto; flex-wrap:nowrap; }
+      .connection { padding:5px 6px; font-size:10px; gap:5px; white-space:nowrap; }
+      .connection-group > .connection:first-child { display:none; }
+      .dot { width:6px; height:6px; }
+      .alert { flex:0 0 auto; margin:0; padding:5px 9px; border-radius:7px; font-size:11px; gap:7px; }
+      .alert #failsafeDetail { display:none; }
+      .metrics { flex:0 0 auto; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; margin:0; }
+      .metric { padding:8px 5px 7px; border-radius:8px; }
+      .eyebrow { font-size:8px; letter-spacing:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .metric-value { margin-top:3px; font-size:clamp(16px,5vw,23px); letter-spacing:-.7px; }
+      #modeValue { font-size:clamp(10px,3vw,15px) !important; letter-spacing:-.4px; }
+      .unit { font-size:10px; margin-left:1px; }
+      .metric-foot { display:none; }
+      .layout { display:contents; }
+      .stack { display:contents; }
+      .chart-card { order:1; flex:1 1 auto; min-height:100px; padding:8px; display:flex; flex-direction:column; }
+      .chart-card .section-head { margin-bottom:2px; }
+      .chart-wrap { height:auto; flex:1; min-height:0; }
+      .section-title { font-size:12px; }
+      .section-sub { font-size:9px; }
+      .chart-card .section-sub { display:none; }
+      .panel { padding:8px; }
+      .layout .stack:nth-child(2) > .panel:first-child { order:2; flex:0 0 auto; }
+      .layout .stack:nth-child(2) > .panel:nth-child(2) { order:3; flex:0 0 auto; }
+      .layout .stack:nth-child(1) > .panel:nth-child(2) { order:4; flex:0 0 auto; }
+      .section-head { margin-bottom:5px; }
+      .buttons { grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+      .btn { padding:9px 1px; font-size:10px; border-radius:6px; }
+      .btn.wide { grid-column:span 1; }
+      .session-actions { display:none; }
+      .toast { min-height:0; margin-top:3px; font-size:10px; max-height:26px; overflow:hidden; }
+      .status-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
+      .status-tile { padding:5px 4px; border-radius:6px; }
+      .status-label { font-size:9px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .status-value { font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .logbox { height:24px; min-height:24px; padding:3px 5px; font-size:9px; line-height:15px; white-space:pre; overflow:hidden; text-overflow:ellipsis; }
+      .mobile-tools { display:flex; gap:5px; flex:0 0 auto; order:5; }
+      .mobile-tools .btn { flex:1; padding:8px; }
+      .recipe { display:none; position:fixed; z-index:20; left:8px; right:8px; top:12%; bottom:calc(8px + env(safe-area-inset-bottom)); margin:0; overflow:auto; padding:12px; box-shadow:0 0 0 100vmax #0009; }
+      .recipe.mobile-open { display:block; }
+      .recipe-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .recipe .subtitle { display:block; }
+      .log-expanded .logbox { height:calc(100dvh - 150px); overflow:auto; white-space:pre-wrap; }
+      .log-expanded { position:fixed; z-index:20; left:8px; right:8px; top:75px; bottom:8px; padding:12px; box-shadow:0 0 0 100vmax #0009; display:flex; flex-direction:column; }
+      .log-expanded .logbox { flex:1; height:auto; }
+      .log-expanded .section-head { flex:0 0 auto; }
+      .mobile-close { display:none; }
+      .mobile-open .mobile-close,.log-expanded .mobile-close { display:inline-block; }
+    }
+    @media (max-width:360px) { .buttons { grid-template-columns:repeat(4,minmax(0,1fr)); } .metric-value { font-size:16px; } }
+    @media (max-width:650px) and (max-height:650px) {
+      .shell { gap:3px; padding-top:4px; padding-bottom:4px; }
+      .metric { padding:5px 4px; }
+      .alert { padding:3px 7px; }
+      .btn { padding-top:6px; padding-bottom:6px; }
+      .status-tile { padding:3px; }
+    }
   </style>
 </head>
 <body>
 <div class="shell">
   <header>
     <div class="brand"><div class="logo">B</div><div><h1>BrewPi <span style="font-weight:400;color:#8da8c6">/ Control Room</span></h1><p class="subtitle">HERMS BREWING CONTROLLER · LIVE TELEMETRY</p></div></div>
-    <div class="connection"><span id="connectionDot" class="dot"></span><span id="connectionText">Connecting to controller...</span></div>
+    <div class="connection-group">
+      <div class="connection"><span id="connectionDot" class="dot"></span><span id="connectionText">Connecting to controller...</span></div>
+      <div id="telemetryHeartbeat" class="connection heartbeat lost" role="status" aria-live="off"><span class="dot"></span><span id="telemetryHeartbeatText">No telemetry yet</span></div>
+    </div>
   </header>
   <div id="failsafeAlert" class="alert" role="alert"><span style="font-size:18px">!</span><div><div id="failsafeTitle">FAILSAFE ACTIVE</div><div id="failsafeDetail" style="font-size:12px;font-weight:400;margin-top:3px">Controller reports a safety shutdown. Heater must remain disabled.</div></div></div>
   <section class="metrics" aria-label="Live temperature readings">
@@ -90,7 +167,7 @@
   <main class="layout">
     <div class="stack">
       <section class="card chart-card"><div class="section-head"><h2 class="section-title">Temperature history</h2><span class="section-sub">Most recent 120 samples · °F</span></div><div class="chart-wrap"><canvas id="chart"></canvas></div></section>
-      <section class="card panel"><div class="section-head"><h2 class="section-title">Live serial log</h2><span class="section-sub" id="lastUpdate">No data received</span></div><div id="logbox" class="logbox" aria-live="off"></div></section>
+      <section class="card panel" id="logPanel"><div class="section-head"><h2 class="section-title">Live serial log</h2><button type="button" class="btn mobile-close" onclick="toggleMobilePanel('log')">Close</button><span class="section-sub" id="lastUpdate">No data received</span></div><div id="logbox" class="logbox" aria-live="off"></div></section>
     </div>
     <div class="stack">
       <section class="card panel"><div class="section-head"><h2 class="section-title">Controller commands</h2><span class="section-sub">Arduino serial commands</span></div>
@@ -106,17 +183,61 @@
       </section>
     </div>
   </main>
-  <section class="card recipe"><div class="section-head"><div><h2 class="section-title">Recipe builder</h2><p class="subtitle">Define up to five temperature and hold-time steps</p></div></div>
+  <section class="card recipe" id="recipePanel"><div class="section-head"><div><h2 class="section-title">Recipe builder</h2><p class="subtitle">Define up to five temperature and hold-time steps</p></div><button type="button" class="btn mobile-close" onclick="toggleMobilePanel('recipe')">Close</button></div>
     <form id="recipeForm"><div id="recipeInputs" class="recipe-grid"></div><div class="recipe-footer"><span class="hint">Only completed steps are sent to the controller.</span><button class="btn blue" type="submit" style="min-width:180px">Send recipe</button></div></form>
   </section>
+  <div class="mobile-tools"><button type="button" class="btn blue" onclick="toggleMobilePanel('recipe')">Recipe editor</button><button type="button" class="btn" onclick="toggleMobilePanel('log')">Full log</button><button type="button" class="btn" onclick="toggleMobilePanel('session')">Session tools</button></div>
+  <div class="card panel" id="sessionPanel" style="display:none;position:fixed;z-index:21;left:8px;right:8px;bottom:15%;padding:16px;box-shadow:0 0 0 100vmax #0009"><div class="section-head"><h2 class="section-title">Session tools</h2><button class="btn" onclick="toggleMobilePanel('session')">Close</button></div><div class="session-actions" style="display:grid;grid-template-columns:1fr 1fr"><button class="btn blue" onclick="startSession()">Start session</button><button class="btn" onclick="downloadSession()">Download session log</button></div></div>
 </div>
 <script>
+  function toggleMobilePanel(name){
+    const recipe=document.getElementById('recipePanel');
+    const log=document.getElementById('logPanel');
+    const session=document.getElementById('sessionPanel');
+    const opening=name==='recipe'?!recipe.classList.contains('mobile-open'):name==='log'?!log.classList.contains('log-expanded'):session.style.display==='none';
+    recipe.classList.remove('mobile-open'); log.classList.remove('log-expanded'); session.style.display='none';
+    if(opening){
+      if(name==='recipe')recipe.classList.add('mobile-open');
+      if(name==='log')log.classList.add('log-expanded');
+      if(name==='session')session.style.display='block';
+    }
+    if(typeof chart!=='undefined')requestAnimationFrame(()=>chart.resize());
+  }
   const logbox = document.getElementById('logbox');
   const heatBadge = document.getElementById('heatBadge');
   const okBadge = document.getElementById('okBadge');
   const actionMessage = document.getElementById('actionMessage');
   const socket = io();
   let lastTelemetryAt = 0;
+  const STALE_AFTER_MS = 5000;
+  const LOST_AFTER_MS = 15000;
+  function updateHeartbeat(){
+    const badge = document.getElementById('telemetryHeartbeat');
+    const label = document.getElementById('telemetryHeartbeatText');
+    if(!socket.connected){
+      badge.className = 'connection heartbeat lost';
+      label.textContent = 'Telemetry unavailable · socket offline';
+      return;
+    }
+    if(!lastTelemetryAt){
+      badge.className = 'connection heartbeat lost';
+      label.textContent = 'Waiting for telemetry';
+      return;
+    }
+    const elapsed = Date.now() - lastTelemetryAt;
+    const seconds = Math.max(0, Math.floor(elapsed / 1000));
+    if(elapsed < STALE_AFTER_MS){
+      badge.className = 'connection heartbeat live';
+      label.textContent = 'Live · ' + seconds + 's ago';
+    }else if(elapsed < LOST_AFTER_MS){
+      badge.className = 'connection heartbeat stale';
+      label.textContent = 'Stale · ' + seconds + 's ago';
+    }else{
+      badge.className = 'connection heartbeat lost';
+      label.textContent = 'No telemetry · ' + seconds + 's';
+    }
+  }
+  setInterval(updateHeartbeat, 1000);
   let lastSafetyMode = '';
 
   Chart.defaults.color = '#91a3ba';
@@ -160,10 +281,12 @@
   function handleSerial(entry){
     if(!entry || typeof entry!=='object')return;
     appendLog(entry);
-    lastTelemetryAt=Date.now();
-    document.getElementById('lastUpdate').textContent='Updated '+new Date().toLocaleTimeString();
     const p=entry.parsed;
     if(!p || typeof p!=='object' || !('TIME' in p || 'MODE' in p || 'NTC' in p || 'HEX' in p))return;
+    // Only a parsed controller telemetry record refreshes the heartbeat.
+    lastTelemetryAt=Date.now();
+    updateHeartbeat();
+    document.getElementById('lastUpdate').textContent='Updated '+new Date().toLocaleTimeString();
     const vessel=readNumber(p,['NTC','T_VESSEL','VESSEL','VESSELF']);
     const hex=readNumber(p,['HEX','HEXF']);
     const sp=readNumber(p,['SP','PIDSETPOINT','SETPOINT']);
@@ -190,9 +313,9 @@
     if(chart.data.labels.length>120){chart.data.labels.shift();chart.data.datasets.forEach(ds=>ds.data.shift());}
     chart.update('none');
   }
-  socket.on('connect',()=>{setConnection(true);socket.emit('request_recent');});
-  socket.on('disconnect',()=>setConnection(false));
-  socket.on('connect_error',err=>{setConnection(false);showMessage('Connection error: '+err.message);});
+  socket.on('connect',()=>{setConnection(true);lastTelemetryAt=0;updateHeartbeat();socket.emit('request_recent');});
+  socket.on('disconnect',()=>{setConnection(false);updateHeartbeat();});
+  socket.on('connect_error',err=>{setConnection(false);updateHeartbeat();showMessage('Connection error: '+err.message);});
   socket.on('serial_update',handleSerial);
 
   async function postJson(path,data){

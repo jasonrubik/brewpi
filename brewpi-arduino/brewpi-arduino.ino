@@ -390,6 +390,7 @@ void parseSerialCommand() {
       if (stepIdx>0) {
         numSteps = stepIdx;
         currentStep = 0;
+        pidSetpoint = recipe[0].setpointF;
         stepStartMs = millis();
         recipeTweaked = true;
         lastButtonEvent = "LOADRECIPE";

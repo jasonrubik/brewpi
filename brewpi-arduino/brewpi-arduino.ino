@@ -161,7 +161,7 @@ void loop() {
   unsigned long now = millis();
 
   // read sensors
-  double vesselTempF = readNTC_F();
+  vesselTempF = readNTC_F();
   double hexTempF = readLM35_F();
 
   // update alarm pin non-blocking

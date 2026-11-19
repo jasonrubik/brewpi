@@ -84,8 +84,11 @@ PID pid(&vesselTempF, &pidOutput, &pidSetpoint, Kp, Ki, Kd, DIRECT);
 // ----------------------------- Failsafe -----------------------------
 const double FAIL_MAX_HEX_F = 200.0;   // absolute maximum
 const double FAIL_MAX_RATE_F = 5.0;    // °F / second (rate-of-rise)
+const unsigned long HEX_RATE_WINDOW_MS = 5000UL;
+
 double lastHexF = 0.0;
 unsigned long lastHexTime = 0;
+bool hexRateInitialized = false;
 bool failsafeLatched = false;
 
 // ----------------------------- Alarm (non-blocking) -----------------------------
@@ -269,26 +272,40 @@ double readLM35_F() {
   return degC * 9.0 / 5.0 + 32.0;
 }
 
-// Check LM35 failsafe: absolute and rate-of-rise
+// Check HEX absolute temperature and 5-second rate of rise.
 bool checkFailsafe() {
   unsigned long now = millis();
-  double hexF = readLM35_F(); // read fresh
-  double dt = 0.0;
-  if (lastHexTime != 0) {
-    dt = (now - lastHexTime) / 1000.0;
-    if (dt <= 0) dt = 0.001;
+  double hexF = readLM35_F();
+
+  // Absolute temperature protection is immediate.
+  if (!isfinite(hexF) || hexF > FAIL_MAX_HEX_F) {
+    return true;
   }
-  double rate = (hexF - lastHexF) / dt; // °F / sec
+
+  // First sample establishes the reference temperature.
+  if (!hexRateInitialized) {
+    lastHexF = hexF;
+    lastHexTime = now;
+    hexRateInitialized = true;
+    return false;
+  }
+
+  unsigned long elapsedMs = now - lastHexTime;
+
+  // Wait for the complete 5-second measurement window.
+  if (elapsedMs < HEX_RATE_WINDOW_MS) {
+    return false;
+  }
+
+  double elapsedSec = elapsedMs / 1000.0;
+  double rate = (hexF - lastHexF) / elapsedSec;
+
+  // Update reference for the next measurement window.
   lastHexF = hexF;
   lastHexTime = now;
 
-  // debug print (optional)
-  // Serial.print("HEX:"); Serial.print(hexF); Serial.print(", rate:"); Serial.println(rate);
-
-  if (hexF > FAIL_MAX_HEX_F || rate > FAIL_MAX_RATE_F) {
-    return true;
-  }
-  return false;
+  // Trigger on sustained excessive temperature rise.
+  return rate > FAIL_MAX_RATE_F;
 }
 
 // Load default recipe into recipe[] working array
